@@ -32,7 +32,7 @@ The [STU](stu.py) module is a fast and flexible building block that can be adapt
 
 This repository was tested with:
 - Python 3.12.5
-- PyTorch 2.4.0
+- PyTorch 2.4.1
 - Triton 3.0.0
 - CUDA 12.4
 
@@ -43,9 +43,13 @@ and may be incompatible with other versions.
     pip install torch --index-url https://download.pytorch.org/whl/cu124
     ```
 
+2. Install required packages:
+   ```bash
+   pip install -e .
+   ```
+
 2. Install Flash Attention:
    ```bash
-   pip install ninja
    MAX_JOBS=4 pip install flash-attn --no-build-isolation
    ```
 
@@ -55,10 +59,6 @@ and may be incompatible with other versions.
     pip install git+https://github.com/HazyResearch/flash-fft-conv.git
     ```
 
-4. Install Flash STU:
-   ```bash
-   pip install -e .
-   ```
 Or from source:
 ```
 pip install git+https://github.com/windsornguyen/flash-stu.git
@@ -66,59 +66,61 @@ pip install git+https://github.com/windsornguyen/flash-stu.git
 
 ## Usage
 
-### Using FlashSTU
+### Using Flash STU
 
-You can start using a FlashSTU (by initializing it from scratch) in the following way:
+Here is an example of how to import and use Flash STU:
 ``` python
-from flashstu import FlashSTU, FlashSTUConfig, get_spectral_filters
+from flash_stu import FlashSTU, FlashSTUConfig, get_spectral_filters
 import torch
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda') # Flash STU requires CUDA
 
 config = FlashSTUConfig(
-      MODIFY_YOUR_ARGS_HERE
-    )
-phi = get_spectral_filters(config.seq_len, config.num_eigh, config.use_hankel_L, device, config.torch_dtype)
+   MODIFY_YOUR_ARGS_HERE,
+)
+
+phi = get_spectral_filters(
+   config.seq_len, 
+   config.num_eigh, 
+   config.use_hankel_L, 
+   device, 
+   config.torch_dtype
+)
+
 model = FlashSTU(
    config, 
    phi
 )
+
 y = model(x)
 ```
 
-### If you want to replicate the training
+### Training
 
-First of all, once you have followed the installation steps, cd into `training` dir.
+An example LLM pretraining script is provided in [`example.py`](training/example.py) for you to test out the repository.
 
-An example training script for pretraining a large language model is provided in [`example.py`](example.py).
-
-If your compute cluster does not have internet access, you will need to pre-download the entire dataset before running the example script.
+If your compute cluster does not have internet access, you will need to pre-download the entire dataset before running the example training script.
 
 To download the dataset, run:
 ```bash
+cd training
 python data.py
 ```
 
-We provide an LLM pretraining script, [`example.py`](example.py), for you to test out the repository. To begin training, run the following commands in your terminal. Make sure to adapt the script if you are not using [environement modules](https://modules.readthedocs.io/en/latest/index.html):
+> **Note**: The FineWeb-Edu 10B-token sample is a relatively large dataset. It can be swapped out for something smaller, e.g. [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) (476.6M tokens).
+
+To begin training, make sure you are in the `training` directory and run the following command in your terminal:
 
 ```bash
-chmod +x job.slurm
-./job.slurm
+torchrun example.py
 ```
 
-If you are in a compute cluster that uses Slurm and [environement modules](https://modules.readthedocs.io/en/latest/index.html), you can submit a job using the following command:
+If you are in a compute cluster that uses Slurm and [environment modules](https://modules.readthedocs.io/en/latest/index.html), you can submit a job using the following command:
 ```bash
 sbatch job.slurm
 ```
 
-Be sure to adjust the configurations of the [Slurm job](job.slurm) based on your cluster's constraints.
-
-> **Note**: The FineWeb-Edu 10B-token sample is a relatively large dataset. It can be swapped out for something smaller, e.g. [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) (476.6M tokens).
-
-
-#### Training configuration
-
-Training configurations can be adjusted as needed in [`config.json`](config.json).
+Model configurations can be adjusted as needed in [`config.json`](training/config.json). Be sure to adjust the configurations of the [Slurm job](training/job.slurm) based on your cluster's constraints.
 
 > **Note**: PyTorch's `torch.compile` currently does not have great support for distributed wrapper modules like DDP or FSDP. If you encounter errors during training, try disabling `torch.compile`. For more information on `torch.compile`, see this [informal manual](https://docs.google.com/document/d/1y5CRfMLdwEoF1nTk9q8qEu1mgMUuUtvhklPKJ2emLU8/edit#heading=h.ivdr7fmrbeab).
 
@@ -146,7 +148,7 @@ See the [LICENSE](LICENSE) file for more details.
 
 ## Acknowledgments
 
-Huge thanks to (in no particular order):
+Special thanks to (in no particular order):
 - Elad Hazan and the authors of the [Spectral State Space Models](https://arxiv.org/abs/2312.06837) paper
 - Isabel Liu, Yagiz Devre, Evan Dogariu
 - The Flash Attention team
@@ -157,11 +159,12 @@ Huge thanks to (in no particular order):
 
 ## Citation
 
-If you use this codebase, or otherwise find our work valuable, please cite Flash STU:
+If you use this repository, or otherwise find our work valuable, please cite Flash STU:
 ```
-@article{Flash STU,
+@article{flashstu,
   title={Flash STU: Fast Spectral Transform Units},
-  author={Isabel Y. Liu and Windsor Nguyen and al.},
-  journal={arXiv preprint arXiv:2409.10489v2},
-  year={2024}
+  author={Y. Isabel Liu, Windsor Nguyen, Yagiz Devre, Evan Dogariu, Anirudha Majumdar, Elad Hazan},
+  journal={arXiv preprint arXiv:2409.10489},
+  year={2024},
+  url={https://arxiv.org/abs/2409.10489}
 }

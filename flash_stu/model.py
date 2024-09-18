@@ -3,28 +3,24 @@ import torch.nn as nn
 
 from transformers import PreTrainedModel
 
-from flashstu.modules.stu import STU
-from flashstu.modules.modules import Attention
-from flashstu.utils.utils import nearest_power_of_two
-from flashstu.config import FlashSTUConfig
-from flashstu.layers.stu_layer import STULayer
-from flashstu.layers.attention_layer import AttentionLayer
-
-
-try:
-    from liger_kernel.transformers.swiglu import LigerSwiGLUMLP as TritonMLP
-    triton_mlp = True
-except ImportError as e:
-    print(f"Unable to import Triton-based MLP: {e}. Falling back to vanilla SwiGLU MLP instead.")
-    triton_mlp = False
+from flash_stu.modules.stu import STU
+from flash_stu.modules.attention import Attention
+from flash_stu.utils.numerics import nearest_power_of_two
+from flash_stu.config import FlashSTUConfig
+from flash_stu.layers.stu_layer import STULayer
+from flash_stu.layers.attention_layer import AttentionLayer
 
 try:
     from liger_kernel.transformers.rms_norm import LigerRMSNorm as TritonNorm
     triton_norm = True
 except ImportError as e:
-    print(f"Unable to import Triton-based RMSNorm: {e}. Falling back to PyTorch implementation.")
+    print(
+        f"Unable to import Triton-based RMSNorm: {e}. Falling back to PyTorch implementation."
+    )
     from torch.nn import RMSNorm
+
     triton_norm = False
+
 
 class FlashSTU(PreTrainedModel):
     config_class = FlashSTUConfig
@@ -38,7 +34,9 @@ class FlashSTU(PreTrainedModel):
         self.use_hankel_L = config.use_hankel_L
 
         # TODO: Add support for Liger-Kernel Embedding once no longer experimental
-        self.tok_emb = nn.Embedding(config.vocab_size, config.n_embd, dtype=config.torch_dtype)
+        self.tok_emb = nn.Embedding(
+            config.vocab_size, config.n_embd, dtype=config.torch_dtype
+        )
         self.dropout = nn.Dropout(config.dropout)
 
         self.layers = nn.ModuleList()
@@ -47,12 +45,22 @@ class FlashSTU(PreTrainedModel):
             if layer_idx % 2 == 0:
                 self.layers.append(STULayer(config, self.phi, self.n))
             else:
-                self.layers.append(AttentionLayer(config) if config.use_attn else STULayer(config, self.phi, self.n))
+                self.layers.append(
+                    AttentionLayer(config)
+                    if config.use_attn
+                    else STULayer(config, self.phi, self.n)
+                )
 
-        self.norm = TritonNorm(config.n_embd) if triton_norm else RMSNorm(config.n_embd, dtype=config.torch_dtype)
+        self.norm = (
+            TritonNorm(config.n_embd)
+            if triton_norm
+            else RMSNorm(config.n_embd, dtype=config.torch_dtype)
+        )
         # TODO: Write Issue in Liger-Kernel repo to support user-defined dtype for RMS Norm
         self.norm = self.norm.to(dtype=config.torch_dtype)
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=config.bias, dtype=config.torch_dtype)
+        self.lm_head = nn.Linear(
+            config.n_embd, config.vocab_size, bias=config.bias, dtype=config.torch_dtype
+        )
         self.tok_emb.weight = self.lm_head.weight
 
         self.std = (config.n_embd) ** -0.5

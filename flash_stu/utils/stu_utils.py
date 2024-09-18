@@ -1,56 +1,11 @@
-import gc
-import math
-import json
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 from flashfftconv import FlashFFTConv
-from transformers.utils import WEIGHTS_NAME, CONFIG_NAME
-from transformers.utils.hub import cached_file
 
+from flash_stu.utils.numerics import nearest_power_of_two
 
-class GarbageCollection:
-    def __init__(self, gc_freq=1000):
-        assert gc_freq > 0, "gc_freq must be a positive integer"
-        self.gc_freq = gc_freq
-        gc.disable()
-        gc.collect(1)
-
-    def run(self, step_count):
-        if step_count > 1 and step_count % self.gc_freq == 0:
-            gc.collect(1)
-
-def load_config_hf(model_name):
-    resolved_archive_file = cached_file(model_name, CONFIG_NAME, _raise_exceptions_for_missing_entries=False)
-    return json.load(open(resolved_archive_file))
-
-def load_state_dict_hf(model_name, device=None, dtype=None):
-    mapped_device = "cpu" if dtype not in [torch.float32, None] else device
-    resolved_archive_file = cached_file(model_name, WEIGHTS_NAME, _raise_exceptions_for_missing_entries=False)
-    state_dict = torch.load(resolved_archive_file, map_location=mapped_device)
-    if dtype is not None:
-        state_dict = {k: v.to(dtype=dtype) for k, v in state_dict.items()}
-    if device is not None and device != mapped_device:
-        state_dict = {k: v.to(device=device) for k, v in state_dict.items()}
-    return state_dict
-
-def nearest_power_of_two(x: int, round_up: bool = False) -> int:
-    return (
-        1 << math.floor(math.log2(x)) if not round_up else 1 << math.ceil(math.log2(x))
-    )
-
-def linear_decay_with_warmup( # https://arxiv.org/pdf/2310.07831
-    current_step: int, 
-    warmup_steps: int, 
-    num_steps: int, 
-    max_lr: float = 3e-4, 
-    min_lr: float = 3e-5,
-) -> float:
-    if current_step < warmup_steps:
-        return min_lr + (max_lr - min_lr) * float(current_step) / float(max(warmup_steps, 1))
-    else:
-        return max_lr - (max_lr - min_lr) * float(current_step - warmup_steps) / float(max(num_steps - warmup_steps, 1))
 
 def get_hankel(seq_len: int, use_hankel_L: bool = False) -> np.ndarray:
     entries = np.arange(1, seq_len + 1, dtype=np.float64)

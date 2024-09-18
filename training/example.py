@@ -22,9 +22,10 @@ from distributed import (
     setup_distributed,
     setup_fsdp
 )
-from flashstu.config import FlashSTUConfig
-from flashstu.model import FlashSTU
-from flashstu.utils.utils import GarbageCollection, get_spectral_filters, linear_decay_with_warmup
+from flash_stu.config import FlashSTUConfig
+from flash_stu.model import FlashSTU
+from flash_stu.utils.stu_utils import get_spectral_filters
+from flash_stu.utils.training import GarbageCollection, linear_decay_with_warmup
 
 try:
     from liger_kernel.transformers.cross_entropy import LigerCrossEntropyLoss as CrossEntropyLoss
@@ -44,7 +45,7 @@ def main():
 
     with open("config.json", "r") as file:
         config  = json.load(file)
-    
+
     # Model configurations
     n_embd             = config['n_embd']
     n_heads            = config['n_heads']

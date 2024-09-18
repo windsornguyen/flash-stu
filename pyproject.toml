@@ -1,3 +1,130 @@
+[project]
+name = "flash-stu"
+version = "1.0.0"
+description = "An optimized, open-source PyTorch implementation of the Spectral Transform Unit (STU)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+
+authors = [
+    { name = "Isabel Liu", email = "isabel.liu@princeton.edu" },
+    { name = "Windsor Nguyen", email = "windsor@princetonalignment.org" },
+    { name = "Yagiz Devre", email = "yagiz.devre@princeton.edu" },
+    { name = "Evan Dogariu", email = "ed2719@nyu.edu" },
+    { name = "Anirudha Majumdar", email = "ani.majumdar@princeton.edu" },
+    { name = "Elad Hazan", email = "ehazan@princeton.edu" }
+]
+
+maintainers = [
+    { name = "Windsor Nguyen", email = "windsor@princetonalignment.org" }
+]
+
+keywords = [
+    "pytorch",
+    "state space model",
+    "spectral filtering",
+    "deep learning",
+    "machine learning",
+    "time series",
+    "dynamical systems",
+    "language modeling",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache License",
+    "Operating System :: Unix"
+]
+
+dependencies = [
+    "packaging==24.1",
+    "wheel==0.44.0",
+    "numpy==1.26.4",
+    "ninja==1.11.1.1",
+    "torch==2.4.1",
+    "triton==3.0.0",
+    "einops==0.8.0",
+    "liger-kernel==0.2.1",
+    "tiktoken==0.7.0",
+    "transformers==4.44.0",
+    "datasets==2.20.0",
+    "safetensors==0.4.4",
+    "psutil==6.0.0",
+    "matplotlib==3.9.2",
+]
+
+[tool.setuptools]
+packages = ["flash_stu"]
+
+# ===============================
+# Project URLs
+# ===============================
+[project.urls]
+Homepage = "https://arxiv.org/abs/2409.10489"
+Repository = "https://github.com/windsornguyen/flash-stu"
+
+# ===============================
+# Ruff Configuration
+# ===============================
+[tool.ruff]
+# Exclude commonly ignored directories from linting
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+# General Ruff settings
+line-length = 119
+indent-width = 4
+target-version = "py311"
+
+# -------------------------------
+# Ruff Linting Rules
+# -------------------------------
+[tool.ruff.lint]
+# Enable specific linting rules
+select = ["E4", "E7", "E9", "F", "B", "Q"]
+ignore = []
+
+# Define fixable and unfixable rules
+fixable = ["ALL"]
+unfixable = []
+
+# -------------------------------
+# Ruff Flake8-Quotes Settings
+# -------------------------------
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"  # Enforce double quotes for docstrings
+inline-quotes = "double"     # Enforce double quotes for inline strings
+
+# -------------------------------
+# Ruff Formatting Settings
+# -------------------------------
+[tool.ruff.format]
+quote-style = "double"                  # Use double quotes for auto-formatting
+indent-style = "space"                  # Indent with spaces instead of tabs
+skip-magic-trailing-comma = false       # Respect magic trailing commas
+line-ending = "auto"                    # Automatically detect line endings
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"

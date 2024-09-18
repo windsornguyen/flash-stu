@@ -19,11 +19,8 @@ log_info() {
 set -e
 trap 'log_info "Error on line $LINENO"; exit 1' ERR
 
-# Environment module management
-module purge
-module load anaconda3/2024.6
-module load cudatoolkit/12.4
-source activate flash_stu
+# Activate your virtual environment accordingly
+source activate .venv/bin/activate
 
 # Get the first node (master node) from the SLURM_JOB_NODELIST
 MASTER_NODE=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n1)
@@ -38,7 +35,7 @@ RDZV_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('', 0)); print
 log_info "Starting training run..."
 
 # Run the script using torchrun
-srun torchrun \
+torchrun \
 --nnodes 1 \
 --nproc_per_node 8 \
 --rdzv_id $SLURM_JOB_ID \

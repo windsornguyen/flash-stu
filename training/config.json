@@ -16,7 +16,7 @@
     "bsz": 1,
     "warmup_steps": 19073,
     "eval_period": 25,
-    "save_period": 190000,
+    "save_period": 19000,
     "max_lr": 3.0e-4,
     "min_lr": 3.0e-5,
     "max_norm": 1.0,
@@ -51,4 +51,3 @@
     "softcap": 50.0,
     "torch_compile": false
   }
-  

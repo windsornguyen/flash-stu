@@ -3,7 +3,7 @@ import os
 import random
 import socket
 import sys
-from distutils.version import LooseVersion
+from packaging.version import parse as version_parse
 from functools import partial
 from safetensors.torch import save_file, load_file
 import numpy as np
@@ -25,17 +25,18 @@ from torch.distributed.fsdp import (
     MixedPrecision,
     ShardingStrategy,
 )
-from torch.distributed.fsdp.wrap import (
-    _module_wrap_policy,
-    size_based_auto_wrap_policy
+from torch.distributed.fsdp.wrap import _module_wrap_policy, size_based_auto_wrap_policy
+
+from flash_stu import STU
+from flash_stu.modules.attention import Attention
+from flash_stu.modules.swiglu import MLP
+
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
-from flashstu.modules.modules import Attention, MLP
-from flashstu.modules.stu import STU
-
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
 
 def set_seeds(seed: int, cuda_deterministic: bool = False) -> None:
     random.seed(seed)
@@ -48,8 +49,9 @@ def set_seeds(seed: int, cuda_deterministic: bool = False) -> None:
     if cuda_deterministic:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-    
+
     logger.info(f"Random seeds set to {seed}")
+
 
 def setup_distributed(seed: int = 1337) -> tuple[torch.device, int, int, int, bool]:
     if not dist.is_available():
@@ -75,16 +77,21 @@ def setup_distributed(seed: int = 1337) -> tuple[torch.device, int, int, int, bo
         logger.info(f"Python version: {sys.version}")
         logger.info(f"CUDA version: {torch.version.cuda}")
         logger.info(f"cuDNN version: {torch.backends.cudnn.version()}")
-        logger.info(f"World info: size={world_size}, rank={rank}, local_rank={local_rank}")
+        logger.info(
+            f"World info: size={world_size}, rank={rank}, local_rank={local_rank}"
+        )
         log_system_info(world_size, rank)
 
     return device, local_rank, rank, world_size, main_process
+
 
 def log_system_info(world_size: int, rank: int):
     logger.info(f"System info for rank {rank}:")
     logger.info(f"CPU count: {psutil.cpu_count()}")
     logger.info(f"Total RAM: {psutil.virtual_memory().total / (1024**3):.2f} GB")
-    logger.info(f"Available RAM: {psutil.virtual_memory().available / (1024**3):.2f} GB")
+    logger.info(
+        f"Available RAM: {psutil.virtual_memory().available / (1024**3):.2f} GB"
+    )
 
     # Log local GPU count and world size for clarity
     local_gpu_count = torch.cuda.device_count()
@@ -94,7 +101,10 @@ def log_system_info(world_size: int, rank: int):
     # Log specific GPU properties for this node (local GPUs)
     for i in range(local_gpu_count):
         logger.info(f"GPU {i} (rank {rank}) name: {torch.cuda.get_device_name(i)}")
-        logger.info(f"GPU {i} (rank {rank}) memory: {torch.cuda.get_device_properties(i).total_memory / (1024**3):.2f} GB")
+        logger.info(
+            f"GPU {i} (rank {rank}) memory: {torch.cuda.get_device_properties(i).total_memory / (1024**3):.2f} GB"
+        )
+
 
 def find_checkpoint(log_dir: str) -> str:
     model_pattern = os.path.join(log_dir, "model_*.safetensors")
@@ -103,9 +113,14 @@ def find_checkpoint(log_dir: str) -> str:
     misc_checkpoints = glob(misc_pattern)
     if not model_checkpoints or not misc_checkpoints:
         return None
-    latest_checkpoint = max(model_checkpoints, key=lambda x: int(x.split("_")[-1].split(".")[0]))
-    misc_checkpoint = max(misc_checkpoints, key=lambda x: int(x.split("_")[-1].split(".")[0]))
+    latest_checkpoint = max(
+        model_checkpoints, key=lambda x: int(x.split("_")[-1].split(".")[0])
+    )
+    misc_checkpoint = max(
+        misc_checkpoints, key=lambda x: int(x.split("_")[-1].split(".")[0])
+    )
     return latest_checkpoint, misc_checkpoint
+
 
 def load_checkpoint(model_path: str, misc_path: str, model, optimizer, device):
     model_checkpoint = load_file(model_path)
@@ -113,15 +128,18 @@ def load_checkpoint(model_path: str, misc_path: str, model, optimizer, device):
     model.to(device)
 
     misc_checkpoint = torch.load(misc_path, map_location=device, weights_only=True)
-    model.config = misc_checkpoint['config']
-    optimizer.load_state_dict(misc_checkpoint['optimizer'])
+    model.config = misc_checkpoint["config"]
+    optimizer.load_state_dict(misc_checkpoint["optimizer"])
 
-    step = misc_checkpoint['step']
-    val_loss = misc_checkpoint['val_loss']
+    step = misc_checkpoint["step"]
+    val_loss = misc_checkpoint["val_loss"]
 
     return model, optimizer, step, val_loss
 
-def save_checkpoint(model_checkpoint, optim_checkpoint, config, step, best_val_loss, log_dir):
+
+def save_checkpoint(
+    model_checkpoint, optim_checkpoint, config, step, best_val_loss, log_dir
+):
     model_checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.safetensors")
     other_checkpoint_path = os.path.join(log_dir, f"other_checkpoints_{step:05d}.pt")
 
@@ -138,6 +156,7 @@ def save_checkpoint(model_checkpoint, optim_checkpoint, config, step, best_val_l
     logging.info(
         f"Validation loss improved at step {step}! Save the model to {model_checkpoint_path}, misc data to {other_checkpoint_path}."
     )
+
 
 def setup_fsdp(
     model: nn.Module,
@@ -162,16 +181,22 @@ def setup_fsdp(
     bf16_ready = (
         torch.version.cuda
         and torch.cuda.is_bf16_supported()
-        and LooseVersion(torch.version.cuda) >= "11.0"
+        and version_parse(torch.version.cuda) >= version_parse("11.0")
         and dist.is_nccl_available()
         and nccl.version() >= (2, 10)
     )
 
     # Set up mixed precision
     if mixed_precision and precision:
-        param_dtype = precision.get("param", torch.bfloat16 if bf16_ready else torch.float32)
-        reduce_dtype = precision.get("reduce", torch.bfloat16 if bf16_ready else torch.float32)
-        buffer_dtype = precision.get("buffer", torch.bfloat16 if bf16_ready else torch.float32)
+        param_dtype = precision.get(
+            "param", torch.bfloat16 if bf16_ready else torch.float32
+        )
+        reduce_dtype = precision.get(
+            "reduce", torch.bfloat16 if bf16_ready else torch.float32
+        )
+        buffer_dtype = precision.get(
+            "buffer", torch.bfloat16 if bf16_ready else torch.float32
+        )
 
         if isinstance(param_dtype, str):
             param_dtype = getattr(torch, param_dtype)
@@ -212,15 +237,19 @@ def setup_fsdp(
     fsdp_params["forward_prefetch"] = forward_prefetch
     fsdp_params["sync_module_states"] = sync_module_states
     fsdp_params["use_orig_params"] = use_orig_params
-    
+
     if device_id is None:
         device_id = torch.cuda.current_device()
     fsdp_params["device_id"] = device_id
 
     # Set up auto wrap policy
-    fsdp_modules_set = set(eval(module) if isinstance(module, str) else module for module in fsdp_modules)
+    fsdp_modules_set = set(
+        eval(module) if isinstance(module, str) else module for module in fsdp_modules
+    )
     if auto_wrap_policy == "partial":
-        fsdp_params["auto_wrap_policy"] = partial(_module_wrap_policy, module_classes=fsdp_modules_set)
+        fsdp_params["auto_wrap_policy"] = partial(
+            _module_wrap_policy, module_classes=fsdp_modules_set
+        )
     elif auto_wrap_policy == "size_based":
         fsdp_params["auto_wrap_policy"] = size_based_auto_wrap_policy
     else:
@@ -231,7 +260,9 @@ def setup_fsdp(
         check_fn = lambda submodule: isinstance(submodule, tuple(fsdp_modules_set))
         apply_activation_checkpointing(
             model,
-            checkpoint_wrapper_fn=partial(checkpoint_wrapper, checkpoint_impl=CheckpointImpl.NO_REENTRANT),
+            checkpoint_wrapper_fn=partial(
+                checkpoint_wrapper, checkpoint_impl=CheckpointImpl.NO_REENTRANT
+            ),
             check_fn=check_fn,
         )
 
@@ -239,6 +270,7 @@ def setup_fsdp(
     fsdp_model = FSDP(model, **fsdp_params)
 
     return fsdp_model
+
 
 def cleanup_distributed(rank: int):
     if dist.is_initialized():
