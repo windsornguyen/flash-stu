@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import nearest_power_of_two
+from flashstu.utils.utils import nearest_power_of_two
 
 try:
     from flash_attn import flash_attn_func as fa2

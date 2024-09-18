@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from utils import convolve, flash_convolve
+from flashstu.utils.utils import convolve, flash_convolve
 try:
     from flashfftconv import FlashFFTConv
     flash_fft_available = True

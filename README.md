@@ -55,12 +55,40 @@ and may be incompatible with other versions.
     pip install git+https://github.com/HazyResearch/flash-fft-conv.git
     ```
 
-4. Install the rest of the requirements:
+4. Install Flash STU:
    ```bash
-   pip install -r requirements.txt
+   pip install -e .
    ```
+Or from source:
+```
+pip install git+https://github.com/windsornguyen/flash-stu.git
+```
 
 ## Usage
+
+### Using FlashSTU
+
+You can start using a FlashSTU (by initializing it from scratch) in the following way:
+``` python
+from flashstu import FlashSTU, FlashSTUConfig, get_spectral_filters
+import torch
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+config = FlashSTUConfig(
+      MODIFY_YOUR_ARGS_HERE
+    )
+phi = get_spectral_filters(config.seq_len, config.num_eigh, config.use_hankel_L, device, config.torch_dtype)
+model = FlashSTU(
+   config, 
+   phi
+)
+y = model(x)
+```
+
+### If you want to replicate the training
+
+First of all, once you have followed the installation steps, cd into `training` dir.
 
 An example training script for pretraining a large language model is provided in [`example.py`](example.py).
 
@@ -71,14 +99,14 @@ To download the dataset, run:
 python data.py
 ```
 
-We provide an LLM pretraining script, [`example.py`](example.py), for you to test out the repository. To begin training, run the following commands in your terminal:
+We provide an LLM pretraining script, [`example.py`](example.py), for you to test out the repository. To begin training, run the following commands in your terminal. Make sure to adapt the script if you are not using [environement modules](https://modules.readthedocs.io/en/latest/index.html):
 
 ```bash
 chmod +x job.slurm
 ./job.slurm
 ```
 
-If you are in a compute cluster that uses Slurm, you can submit a job using the following command:
+If you are in a compute cluster that uses Slurm and [environement modules](https://modules.readthedocs.io/en/latest/index.html), you can submit a job using the following command:
 ```bash
 sbatch job.slurm
 ```
@@ -88,7 +116,7 @@ Be sure to adjust the configurations of the [Slurm job](job.slurm) based on your
 > **Note**: The FineWeb-Edu 10B-token sample is a relatively large dataset. It can be swapped out for something smaller, e.g. [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) (476.6M tokens).
 
 
-## Configuration
+#### Training configuration
 
 Training configurations can be adjusted as needed in [`config.json`](config.json).
 
@@ -126,3 +154,14 @@ Huge thanks to (in no particular order):
 - The PyTorch team
 - Princeton Research Computing and Princeton Language and Intelligence, for supplying compute
 - Andrej Karpathy, for his awesome [NanoGPT](https://github.com/karpathy/build-nanogpt) repository
+
+## Citation
+
+If you use this codebase, or otherwise find our work valuable, please cite Flash STU:
+```
+@article{Flash STU,
+  title={Flash STU: Fast Spectral Transform Units},
+  author={Isabel Y. Liu and Windsor Nguyen and al.},
+  journal={arXiv preprint arXiv:2409.10489v2},
+  year={2024}
+}

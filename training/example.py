@@ -22,9 +22,9 @@ from distributed import (
     setup_distributed,
     setup_fsdp
 )
-from flash_stu.config import FlashSTUConfig
-from flash_stu.model import FlashSTU
-from utils import GarbageCollection, get_spectral_filters, linear_decay_with_warmup
+from flashstu.config import FlashSTUConfig
+from flashstu.model import FlashSTU
+from flashstu.utils.utils import GarbageCollection, get_spectral_filters, linear_decay_with_warmup
 
 try:
     from liger_kernel.transformers.cross_entropy import LigerCrossEntropyLoss as CrossEntropyLoss
