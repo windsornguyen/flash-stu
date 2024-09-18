@@ -30,8 +30,8 @@ from torch.distributed.fsdp.wrap import (
     size_based_auto_wrap_policy
 )
 
-from modules import Attention, MLP
-from stu import STU
+from flashstu.modules.modules import Attention, MLP
+from flashstu.modules.stu import STU
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
