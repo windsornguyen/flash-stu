@@ -59,6 +59,10 @@ and may be incompatible with other versions.
    ```bash
    pip install -e .
    ```
+Or from source:
+```
+pip install git+https://github.com/windsornguyen/flash-stu.git
+```
 
 ## Usage
 
